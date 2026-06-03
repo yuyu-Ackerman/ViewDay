@@ -2,7 +2,7 @@ import SnapKit
 import UIKit
 
 /// 首页收支摘要条。
-/// 展示当日收入、支出、结余和最近一笔流水。
+/// 展示当日收入、支出、累计结余和最近一笔流水。
 final class HomeFinanceStripView: UIView {
     private let titleLabel = UILabel()
     private let actionLabel = UILabel()
@@ -27,7 +27,7 @@ final class HomeFinanceStripView: UIView {
 
         addMetric(title: "收入", value: formatCurrency(income), highlighted: true)
         addMetric(title: "支出", value: formatCurrency(expense), highlighted: false)
-        addMetric(title: "结余", value: formatCurrency(balance), highlighted: true)
+        addMetric(title: "累计结余", value: formatCurrency(balance), highlighted: true)
         latestLabel.text = "最近一笔  \(latest ?? "暂无账单")"
     }
 

@@ -13,6 +13,7 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
     private let tagRepository: TagRepository
     private let imageGridView = AttachmentImageGridView()
     private let audioPlayerView = AudioAttachmentPlayerView()
+    private var favoriteButtonItem: UIBarButtonItem?
 
     init(
         diary: DiaryEntry,
@@ -35,20 +36,28 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "日记详情"
-        navigationItem.rightBarButtonItems = [
-            UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(deleteButtonTapped)),
-            UIBarButtonItem(image: UIImage(systemName: diary.isFavorite ? "star.fill" : "star"), style: .plain, target: self, action: #selector(favoriteButtonTapped)),
-            UIBarButtonItem(title: "编辑", style: .plain, target: self, action: #selector(editButtonTapped))
-        ]
-        updateFavoriteButtonAppearance()
+        configureNavigationItems()
         imageGridView.delegate = self
         setupContent()
+    }
+
+    private func configureNavigationItems() {
+        let deleteButtonItem = UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(deleteButtonTapped))
+        let favoriteButtonItem = UIBarButtonItem(image: UIImage(systemName: diary.isFavorite ? "star.fill" : "star"), style: .plain, target: self, action: #selector(favoriteButtonTapped))
+        self.favoriteButtonItem = favoriteButtonItem
+
+        var items = [deleteButtonItem, favoriteButtonItem]
+        if !isFutureDiary {
+            items.append(UIBarButtonItem(title: "编辑", style: .plain, target: self, action: #selector(editButtonTapped)))
+        }
+        navigationItem.rightBarButtonItems = items
+        updateFavoriteButtonAppearance()
     }
 
     private func setupContent() {
         let headerCard = InfoCardView(title: formattedDate(diary.entryDate))
         headerCard.addRow(title: "时间", value: formattedTime(diary.entryDate))
-        headerCard.addRow(title: "心情", value: moodText(diary.mood), valueColor: ViewDayTheme.accent)
+        headerCard.addRow(title: "心情", value: "\(diary.mood.displayEmoji) \(diary.mood.displayTitle)", valueColor: ViewDayTheme.accent)
         headerCard.addRow(title: "地点", value: locationText(diary.location))
         headerCard.addRow(title: "天气", value: weatherText(diary.weather))
         headerCard.addRow(title: "标签", value: tagText())
@@ -141,7 +150,7 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
             let nextValue = !diary.isFavorite
             try diaryRepository.updateFavorite(id: diary.localId, isFavorite: nextValue)
             diary.isFavorite = nextValue
-            navigationItem.rightBarButtonItems?[1].image = UIImage(systemName: nextValue ? "star.fill" : "star")
+            favoriteButtonItem?.image = UIImage(systemName: nextValue ? "star.fill" : "star")
             updateFavoriteButtonAppearance()
             onUpdate?()
         } catch {
@@ -152,6 +161,11 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
     }
 
     @objc private func editButtonTapped() {
+        guard !isFutureDiary else {
+            showFutureEditAlert()
+            return
+        }
+
         let editViewController = DiaryEditViewController(diary: diary, diaryRepository: diaryRepository)
         editViewController.onSave = { [weak self] in
             self?.reloadDiary()
@@ -166,15 +180,24 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
             diary = updatedDiary
             contentView.subviews.forEach { $0.removeFromSuperview() }
             setupContent()
-            navigationItem.rightBarButtonItems?[1].image = UIImage(systemName: diary.isFavorite ? "star.fill" : "star")
-            updateFavoriteButtonAppearance()
+            configureNavigationItems()
         } catch {
             onUpdate?()
         }
     }
 
     private func updateFavoriteButtonAppearance() {
-        navigationItem.rightBarButtonItems?[1].tintColor = diary.isFavorite ? ViewDayTheme.accent : ViewDayTheme.iconPrimary
+        favoriteButtonItem?.tintColor = diary.isFavorite ? ViewDayTheme.accent : ViewDayTheme.iconPrimary
+    }
+
+    private var isFutureDiary: Bool {
+        diary.entryDate > Date()
+    }
+
+    private func showFutureEditAlert() {
+        let alertController = UIAlertController(title: "不能编辑未来日记", message: "这篇日记的记录时间还没到。", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "好", style: .default))
+        present(alertController, animated: true)
     }
 
     private func formattedDate(_ date: Date) -> String {
@@ -192,30 +215,30 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
     }
 
     private func locationText(_ location: LocationSnapshot?) -> String {
-        location?.name ?? location?.district ?? location?.city ?? "未记录地点"
+        "📍 \(location?.name ?? location?.district ?? location?.city ?? "未记录地点")"
     }
 
     private func weatherText(_ weather: WeatherSnapshot?) -> String {
         guard let weather else { return "未记录天气" }
         if let temperature = weather.temperature, let condition = weather.condition {
-            return "\(Int(temperature.rounded()))°C \(condition)"
+            return "\(weatherIcon(for: condition)) \(Int(temperature.rounded()))°C \(condition)"
         }
-        return weather.condition ?? "未记录天气"
-    }
-
-    private func moodText(_ mood: MoodType) -> String {
-        switch mood {
-        case .calm: return "平静"
-        case .happy: return "开心"
-        case .tired: return "疲惫"
-        case .anxious: return "焦虑"
-        case .grateful: return "感恩"
-        }
+        guard let condition = weather.condition else { return "未记录天气" }
+        return "\(weatherIcon(for: condition)) \(condition)"
     }
 
     private func tagText() -> String {
         let tags = (try? tagRepository.fetchTags(forDiaryId: diary.localId)) ?? []
-        return tags.isEmpty ? "未添加标签" : tags.map(\.name).joined(separator: "、")
+        return tags.isEmpty ? "未添加标签" : tags.map { "#\($0.name)" }.joined(separator: "、")
+    }
+
+    private func weatherIcon(for condition: String) -> String {
+        if condition.contains("雨") { return "🌧️" }
+        if condition.contains("雪") { return "❄️" }
+        if condition.contains("雷") { return "⛈️" }
+        if condition.contains("云") || condition.contains("阴") { return "☁️" }
+        if condition.contains("雾") || condition.contains("霾") { return "🌫️" }
+        return "☀️"
     }
 }
 

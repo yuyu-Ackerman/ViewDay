@@ -168,6 +168,11 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
     }
 
     private func saveEditedTransaction(isDraft: Bool) {
+        guard selectedDate <= Date() else {
+            showAlert(title: "不能编辑未来账单", message: "记录时间不能晚于当前时间。")
+            return
+        }
+
         guard
             let amount = amountCard.amount,
             NSDecimalNumber(decimal: amount).compare(NSDecimalNumber.zero) == .orderedDescending
@@ -204,6 +209,7 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         datePicker.datePickerMode = .dateAndTime
         datePicker.preferredDatePickerStyle = .inline
         datePicker.date = selectedDate
+        datePicker.maximumDate = Date()
         presentedDatePicker = datePicker
 
         let viewController = UIViewController()

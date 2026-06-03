@@ -25,7 +25,12 @@ final class HomeDiaryListCardView: UIView {
         nil
     }
 
-    func configure(diaries: [DiaryEntry], imagePathsByDiaryId: [UUID: [String]] = [:], trailingText: String = "查看详情 >") {
+    func configure(
+        diaries: [DiaryEntry],
+        imagePathsByDiaryId: [UUID: [String]] = [:],
+        tagsByDiaryId: [UUID: [Tag]] = [:],
+        trailingText: String = "查看详情 >"
+    ) {
         stackView.arrangedSubviews.forEach { view in
             stackView.removeArrangedSubview(view)
             view.removeFromSuperview()
@@ -39,7 +44,11 @@ final class HomeDiaryListCardView: UIView {
         }
 
         diaries.forEach { diary in
-            let row = DiarySummaryRow(diary: diary, imagePaths: imagePathsByDiaryId[diary.localId] ?? [])
+            let row = DiarySummaryRow(
+                diary: diary,
+                imagePaths: imagePathsByDiaryId[diary.localId] ?? [],
+                tags: tagsByDiaryId[diary.localId] ?? []
+            )
             row.onTap = { [weak self] in
                 guard let self else { return }
                 self.delegate?.homeDiaryListCardView(self, didSelect: diary)
@@ -102,13 +111,14 @@ private final class DiarySummaryRow: UIView {
     private let weatherLabel = UILabel()
     private let bodyLabel = UILabel()
     private let locationLabel = UILabel()
+    private let tagsStackView = UIStackView()
     private var previewWidthConstraint: Constraint?
     private var previewHeightConstraint: Constraint?
 
-    init(diary: DiaryEntry, imagePaths: [String]) {
+    init(diary: DiaryEntry, imagePaths: [String], tags: [Tag]) {
         super.init(frame: .zero)
         setup()
-        configure(diary, imagePaths: imagePaths)
+        configure(diary, imagePaths: imagePaths, tags: tags)
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(rowTapped)))
         isUserInteractionEnabled = true
     }
@@ -163,6 +173,10 @@ private final class DiarySummaryRow: UIView {
         locationLabel.textColor = ViewDayTheme.secondaryText
         locationLabel.numberOfLines = 1
 
+        tagsStackView.axis = .horizontal
+        tagsStackView.spacing = 6
+        tagsStackView.alignment = .leading
+
         addSubview(previewContainer)
         previewContainer.addSubview(thumbnailImageView)
         previewContainer.addSubview(imageCountLabel)
@@ -171,9 +185,11 @@ private final class DiarySummaryRow: UIView {
         addSubview(weatherLabel)
         addSubview(bodyLabel)
         addSubview(locationLabel)
+        addSubview(tagsStackView)
 
         previewContainer.snp.makeConstraints { make in
-            make.top.leading.equalToSuperview().inset(12)
+            make.trailing.equalToSuperview().inset(12)
+            make.top.equalToSuperview().inset(12)
             previewWidthConstraint = make.width.equalTo(88).constraint
             previewHeightConstraint = make.height.equalTo(88).constraint
         }
@@ -190,7 +206,7 @@ private final class DiarySummaryRow: UIView {
 
         timeLabel.snp.makeConstraints { make in
             make.top.equalToSuperview().inset(12)
-            make.leading.equalTo(previewContainer.snp.trailing).offset(14)
+            make.leading.equalToSuperview().inset(12)
         }
 
         moodLabel.snp.makeConstraints { make in
@@ -201,36 +217,43 @@ private final class DiarySummaryRow: UIView {
 
         weatherLabel.snp.makeConstraints { make in
             make.centerY.equalTo(timeLabel)
-            make.trailing.equalToSuperview().inset(12)
+            make.trailing.lessThanOrEqualTo(previewContainer.snp.leading).offset(-12)
         }
 
         bodyLabel.snp.makeConstraints { make in
             make.top.equalTo(timeLabel.snp.bottom).offset(8)
             make.leading.equalTo(timeLabel)
-            make.trailing.equalToSuperview().inset(12)
+            make.trailing.lessThanOrEqualTo(previewContainer.snp.leading).offset(-12)
         }
 
         locationLabel.snp.makeConstraints { make in
             make.top.equalTo(bodyLabel.snp.bottom).offset(8)
             make.leading.equalTo(timeLabel)
-            make.trailing.equalToSuperview().inset(12)
+            make.trailing.lessThanOrEqualTo(previewContainer.snp.leading).offset(-12)
+        }
+
+        tagsStackView.snp.makeConstraints { make in
+            make.top.equalTo(locationLabel.snp.bottom).offset(8)
+            make.leading.equalTo(timeLabel)
+            make.trailing.lessThanOrEqualTo(previewContainer.snp.leading).offset(-12)
             make.bottom.equalToSuperview().inset(12)
         }
 
-        snp.makeConstraints { make in
-            make.height.greaterThanOrEqualTo(128)
-        }
+//        snp.makeConstraints { make in
+//            make.height.greaterThanOrEqualTo(128)
+//        }
     }
 
-    private func configure(_ diary: DiaryEntry, imagePaths: [String]) {
+    private func configure(_ diary: DiaryEntry, imagePaths: [String], tags: [Tag]) {
         timeLabel.text = timeText(diary.entryDate)
         moodLabel.text = moodText(diary.mood)
         weatherLabel.text = weatherText(diary.weather)
         weatherLabel.isHidden = weatherLabel.text?.isEmpty != false
         bodyLabel.text = diary.content.isEmpty ? "未填写正文" : diary.content
         let locationText = diary.location?.name ?? diary.location?.district ?? diary.location?.city
-        locationLabel.text = locationText
+        locationLabel.text = locationText.map { "📍 \($0)" }
         locationLabel.isHidden = locationText?.isEmpty != false
+        configureTags(tags)
 
         if let image = imagePaths.compactMap({ UIImage(contentsOfFile: $0) }).first {
             thumbnailImageView.image = image
@@ -248,6 +271,25 @@ private final class DiarySummaryRow: UIView {
         }
     }
 
+    private func configureTags(_ tags: [Tag]) {
+        tagsStackView.arrangedSubviews.forEach { view in
+            tagsStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        tagsStackView.isHidden = tags.isEmpty
+
+        tags.prefix(3).forEach { tag in
+            let label = PaddingLabel()
+            label.text = "# \(tag.name)"
+            label.font = .systemFont(ofSize: 12, weight: .semibold)
+            label.textColor = ViewDayTheme.secondaryText
+            label.backgroundColor = ViewDayTheme.background
+            label.layer.cornerRadius = 11
+            label.clipsToBounds = true
+            tagsStackView.addArrangedSubview(label)
+        }
+    }
+
     private func timeText(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
@@ -256,24 +298,28 @@ private final class DiarySummaryRow: UIView {
     }
 
     private func moodText(_ mood: MoodType) -> String {
-        switch mood {
-        case .calm: return "平静"
-        case .happy: return "开心"
-        case .tired: return "疲惫"
-        case .anxious: return "焦虑"
-        case .grateful: return "感恩"
-        }
+        mood.displayTitle
     }
 
     private func weatherText(_ weather: WeatherSnapshot?) -> String {
         guard let weather else { return "" }
         if let temperature = weather.temperature, let condition = weather.condition {
-            return "\(Int(temperature.rounded()))°C \(condition)"
+            return "\(weatherIcon(for: condition)) \(Int(temperature.rounded()))°C \(condition)"
         }
         if let temperature = weather.temperature {
-            return "\(Int(temperature.rounded()))°C"
+            return "☀️ \(Int(temperature.rounded()))°C"
         }
-        return weather.condition ?? ""
+        guard let condition = weather.condition else { return "" }
+        return "\(weatherIcon(for: condition)) \(condition)"
+    }
+
+    private func weatherIcon(for condition: String) -> String {
+        if condition.contains("雨") { return "🌧️" }
+        if condition.contains("雪") { return "❄️" }
+        if condition.contains("雷") { return "⛈️" }
+        if condition.contains("云") || condition.contains("阴") { return "☁️" }
+        if condition.contains("雾") || condition.contains("霾") { return "🌫️" }
+        return "☀️"
     }
 
     @objc private func rowTapped() {

@@ -4,14 +4,32 @@ import Foundation
 /// 日记仓储协议。
 /// 页面层通过协议读写日记，便于测试时替换为内存实现。
 protocol DiaryRepositoryProtocol {
+    /// 保存或更新日记。
+    ///
+    /// - Parameter diary: 待保存的日记领域模型。
+    /// - Returns: 从 Core Data 重新映射后的日记模型。
     @discardableResult
     func save(_ diary: DiaryEntry) throws -> DiaryEntry
+
+    /// 按本地 ID 获取单篇日记。
     func fetchDiary(id: UUID) throws -> DiaryEntry?
+
+    /// 获取指定日期内的所有未删除日记，包含草稿。
     func fetchDiaries(on date: Date, calendar: Calendar) throws -> [DiaryEntry]
+
+    /// 获取指定日期内最新一篇正式日记。
     func fetchLatestDiary(on date: Date, calendar: Calendar) throws -> DiaryEntry?
+
+    /// 获取最近日记，可按正文、地点和情绪搜索。
     func fetchRecentDiaries(limit: Int, searchText: String?) throws -> [DiaryEntry]
+
+    /// 更新收藏状态，并把记录标记为待同步更新。
     func updateFavorite(id: UUID, isFavorite: Bool) throws
+
+    /// 更新日记内容和元数据，并刷新更新时间与同步状态。
     func updateDiary(_ diary: DiaryEntry) throws
+
+    /// 软删除日记，并清理其附件和标签关系。
     func softDeleteDiary(id: UUID) throws
 }
 

@@ -7,6 +7,7 @@ import UIKit
 final class HomeViewController: ViewDayBaseViewController {
     private let dashboardRepository: DashboardRepository
     private let attachmentRepository: AttachmentRepository
+    private let tagRepository: TagRepository
     private let locationService: LocationServiceProtocol
     private let weatherService: WeatherSnapshotServiceProtocol
     private let headerCardView = UIView()
@@ -31,12 +32,14 @@ final class HomeViewController: ViewDayBaseViewController {
     init(
         dashboardRepository: DashboardRepository = DashboardRepository(),
         attachmentRepository: AttachmentRepository = AttachmentRepository(),
+        tagRepository: TagRepository = TagRepository(),
         locationService: LocationServiceProtocol = LocationService(),
         weatherService: WeatherSnapshotServiceProtocol = WeatherSnapshotService(),
         selectedDate: Date = Date()
     ) {
         self.dashboardRepository = dashboardRepository
         self.attachmentRepository = attachmentRepository
+        self.tagRepository = tagRepository
         self.locationService = locationService
         self.weatherService = weatherService
         self.selectedDate = selectedDate
@@ -112,6 +115,11 @@ final class HomeViewController: ViewDayBaseViewController {
     private func setupInteractions() {
         financeStripView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(financeStripTapped)))
 
+        let swipeGesture = UISwipeGestureRecognizer(target: self, action: #selector(refreshControlTriggered))
+        swipeGesture.direction = .up
+        swipeGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(swipeGesture)
+
         diaryCard.accessibilityTraits.insert(.button)
         diaryCard.accessibilityLabel = "查看当日日记"
         financeStripView.accessibilityTraits.insert(.button)
@@ -129,10 +137,10 @@ final class HomeViewController: ViewDayBaseViewController {
         headerCardView.layer.cornerRadius = 0
         headerCardView.layer.borderWidth = 0
 
-        locationLabel.font = .systemFont(ofSize: 27, weight: .bold)
+        locationLabel.font = .systemFont(ofSize: 32, weight: .bold)
         locationLabel.textColor = ViewDayTheme.primaryText
         locationLabel.adjustsFontSizeToFitWidth = true
-        locationLabel.minimumScaleFactor = 0.7
+        locationLabel.minimumScaleFactor = 0.62
         locationLabel.numberOfLines = 1
 
         dateLabel.font = .systemFont(ofSize: 14, weight: .semibold)
@@ -157,17 +165,17 @@ final class HomeViewController: ViewDayBaseViewController {
         headerCardView.addSubview(calendarButton)
 
         weatherLabel.snp.makeConstraints { make in
-            make.leading.equalToSuperview()
-            make.top.equalTo(dateLabel.snp.bottom).offset(8)
+            make.leading.equalTo(dateLabel.snp.trailing).offset(12)
+            make.centerY.equalTo(dateLabel)
             make.height.equalTo(28)
             make.width.greaterThanOrEqualTo(88)
             make.bottom.equalToSuperview()
         }
 
         dateLabel.snp.makeConstraints { make in
-            make.top.equalTo(locationLabel.snp.bottom).offset(6)
+            make.top.equalTo(locationLabel.snp.bottom).offset(10)
             make.leading.equalToSuperview()
-            make.trailing.lessThanOrEqualTo(calendarButton.snp.leading).offset(-12)
+            make.trailing.lessThanOrEqualTo(weatherLabel.snp.leading).offset(-12)
         }
 
         locationLabel.snp.makeConstraints { make in
@@ -201,7 +209,6 @@ final class HomeViewController: ViewDayBaseViewController {
     // MARK: - Data Loading
 
     private func reloadOverview() {
-        dateLabel.text = formattedDate(selectedDate)
         dateStripView.configure(around: selectedDate, selectedDate: selectedDate)
 
         do {
@@ -216,10 +223,16 @@ final class HomeViewController: ViewDayBaseViewController {
 
     private func apply(_ overview: DailyOverview) {
         // 自动刷新到的实时位置天气优先展示；没有实时数据时回退到当天记录中保存的快照。
-        locationLabel.text = locationText(from: currentHeaderLocation ?? overview.location)
+        let headerLocation = currentHeaderLocation ?? overview.location
+        locationLabel.text = headerTitleText(from: headerLocation)
+        dateLabel.text = headerSubtitleText(from: headerLocation)
         weatherLabel.text = weatherText(from: currentHeaderWeather ?? overview.weather)
 
-        diaryCard.configure(diaries: overview.diaries, imagePathsByDiaryId: imagePathsByDiaryId(for: overview.diaries))
+        diaryCard.configure(
+            diaries: overview.diaries,
+            imagePathsByDiaryId: imagePathsByDiaryId(for: overview.diaries),
+            tagsByDiaryId: tagsByDiaryId(for: overview.diaries)
+        )
 
         financeStripView.configure(
             income: overview.todayIncome,
@@ -230,7 +243,8 @@ final class HomeViewController: ViewDayBaseViewController {
     }
 
     private func applyEmptyState() {
-        locationLabel.text = locationText(from: currentHeaderLocation)
+        locationLabel.text = headerTitleText(from: currentHeaderLocation)
+        dateLabel.text = headerSubtitleText(from: currentHeaderLocation)
         weatherLabel.text = weatherText(from: currentHeaderWeather)
         diaryCard.configure(diaries: [])
         financeStripView.configure(income: .zero, expense: .zero, balance: .zero, latest: nil)
@@ -239,7 +253,8 @@ final class HomeViewController: ViewDayBaseViewController {
     private func refreshCurrentLocationAndWeather() {
         weatherTask?.cancel()
         locationLabel.text = "定位中"
-        weatherLabel.text = "天气获取中"
+        dateLabel.text = "当前位置"
+        weatherLabel.text = "☁️ 天气获取中"
 
         locationService.requestCurrentLocation { [weak self] result in
             DispatchQueue.main.async {
@@ -249,12 +264,14 @@ final class HomeViewController: ViewDayBaseViewController {
                 case let .success(location):
                     self.currentHeaderLocation = location
                     self.currentHeaderWeather = nil
-                    self.locationLabel.text = self.locationText(from: location)
+                    self.locationLabel.text = self.headerTitleText(from: location)
+                    self.dateLabel.text = self.headerSubtitleText(from: location)
                     self.requestWeather(for: location)
                 case .failure:
                     self.currentHeaderLocation = nil
                     self.currentHeaderWeather = nil
-                    self.locationLabel.text = self.locationText(from: self.currentOverview?.location)
+                    self.locationLabel.text = self.headerTitleText(from: self.currentOverview?.location)
+                    self.dateLabel.text = self.headerSubtitleText(from: self.currentOverview?.location)
                     self.weatherLabel.text = self.weatherText(from: self.currentOverview?.weather)
                     self.refreshControl.endRefreshing()
                 }
@@ -300,34 +317,24 @@ final class HomeViewController: ViewDayBaseViewController {
         return pathsByDiaryId
     }
 
-    private func locationText(from location: LocationSnapshot?) -> String {
-        guard let location else { return "当前位置" }
-
-        if let city = location.city, let district = location.district {
-            return "\(city) \(shortenedLocationName(district))"
+    private func tagsByDiaryId(for diaries: [DiaryEntry]) -> [UUID: [Tag]] {
+        var tagsByDiaryId: [UUID: [Tag]] = [:]
+        diaries.forEach { diary in
+            tagsByDiaryId[diary.localId] = (try? tagRepository.fetchTags(forDiaryId: diary.localId)) ?? []
         }
-
-        if let city = location.city {
-            return city
-        }
-
-        if let name = location.name {
-            return shortenedLocationName(name)
-        }
-
-        return "当前位置"
+        return tagsByDiaryId
     }
 
-    private func shortenedLocationName(_ name: String) -> String {
-        // 首页标题空间有限，优先保留行政区或地点名称的第一段。
-        let separators = CharacterSet(charactersIn: ",，-")
-        let firstPart = name.components(separatedBy: separators).first?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let candidate = firstPart?.isEmpty == false ? firstPart ?? name : name
-        return candidate.count > 14 ? "\(candidate.prefix(14))..." : candidate
+    private func headerTitleText(from location: LocationSnapshot?) -> String {
+        HomeLocationDisplayFormatter.title(from: location)
+    }
+
+    private func headerSubtitleText(from location: LocationSnapshot?) -> String {
+        HomeLocationDisplayFormatter.subtitle(from: location)
     }
 
     private func weatherText(from weather: WeatherSnapshot?) -> String {
-        guard let weather else { return "天气待获取" }
+        guard let weather else { return "☁️ 天气待获取" }
 
         let temperatureText: String
         if let temperature = weather.temperature {
@@ -336,7 +343,17 @@ final class HomeViewController: ViewDayBaseViewController {
             temperatureText = "--°C"
         }
 
-        return "\(temperatureText) \(weather.condition ?? "")".trimmingCharacters(in: .whitespaces)
+        let condition = weather.condition ?? ""
+        return "\(weatherIcon(for: condition)) \(temperatureText) \(condition)".trimmingCharacters(in: .whitespaces)
+    }
+
+    private func weatherIcon(for condition: String) -> String {
+        if condition.contains("雨") { return "🌧️" }
+        if condition.contains("雪") { return "❄️" }
+        if condition.contains("雷") { return "⛈️" }
+        if condition.contains("云") || condition.contains("阴") { return "☁️" }
+        if condition.contains("雾") || condition.contains("霾") { return "🌫️" }
+        return "☀️"
     }
 
     private func latestTransactionText(_ transaction: LedgerTransaction?) -> String? {
@@ -413,6 +430,7 @@ final class HomeViewController: ViewDayBaseViewController {
     }
 
     @objc private func refreshControlTriggered() {
+        selectedDate = Date()
         reloadOverview()
         refreshCurrentLocationAndWeather()
     }

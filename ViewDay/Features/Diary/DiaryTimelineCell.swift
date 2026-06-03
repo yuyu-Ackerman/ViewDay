@@ -33,14 +33,14 @@ final class DiaryTimelineCell: UITableViewCell {
 
     func configure(with diary: DiaryEntry, tags: [Tag] = [], imagePaths: [String] = []) {
         timeLabel.text = timeText(diary.entryDate)
-        moodLabel.text = "\(moodIcon(diary.mood))  \(diary.isDraft ? "草稿 · " : "")\(moodText(diary.mood))"
+        moodLabel.text = "\(diary.mood.displayEmoji)  \(diary.isDraft ? "草稿 · " : "")\(diary.mood.displayTitle)"
         weatherLabel.text = weatherText(diary.weather)
         weatherLabel.isHidden = weatherLabel.text?.isEmpty == true
         contentLabel.text = diary.content
         imageSummaryView.configure(imagePaths: imagePaths)
         imageSummaryView.isHidden = imagePaths.isEmpty
         imageHeightConstraint?.update(offset: imagePaths.isEmpty ? 0 : imageSummaryView.preferredHeight)
-        locationLabel.text = diary.location?.name ?? diary.location?.district ?? diary.location?.city ?? "未记录地点"
+        locationLabel.text = "📍 \(diary.location?.name ?? diary.location?.district ?? diary.location?.city ?? "未记录地点")"
         configureTags(tags)
         favoriteButton.setImage(UIImage(systemName: diary.isFavorite ? "star.fill" : "star"), for: .normal)
         favoriteButton.tintColor = diary.isFavorite ? ViewDayTheme.accent : ViewDayTheme.iconSecondary
@@ -190,7 +190,7 @@ final class DiaryTimelineCell: UITableViewCell {
 
         tags.prefix(3).forEach { tag in
             let label = PaddingLabel()
-            label.text = tag.name
+            label.text = "# \(tag.name)"
             label.font = .systemFont(ofSize: 12, weight: .semibold)
             label.textColor = ViewDayTheme.secondaryText
             label.backgroundColor = ViewDayTheme.background
@@ -210,29 +210,19 @@ final class DiaryTimelineCell: UITableViewCell {
     private func weatherText(_ weather: WeatherSnapshot?) -> String {
         guard let weather else { return "" }
         if let temperature = weather.temperature, let condition = weather.condition {
-            return "\(Int(temperature.rounded()))°C \(condition)"
+            return "\(weatherIcon(for: condition)) \(Int(temperature.rounded()))°C \(condition)"
         }
-        return weather.condition ?? ""
+        guard let condition = weather.condition else { return "" }
+        return "\(weatherIcon(for: condition)) \(condition)"
     }
 
-    private func moodText(_ mood: MoodType) -> String {
-        switch mood {
-        case .calm: return "平静"
-        case .happy: return "开心"
-        case .tired: return "疲惫"
-        case .anxious: return "焦虑"
-        case .grateful: return "感恩"
-        }
-    }
-
-    private func moodIcon(_ mood: MoodType) -> String {
-        switch mood {
-        case .calm: return "☺"
-        case .happy: return "☻"
-        case .tired: return "◔"
-        case .anxious: return "!"
-        case .grateful: return "♡"
-        }
+    private func weatherIcon(for condition: String) -> String {
+        if condition.contains("雨") { return "🌧️" }
+        if condition.contains("雪") { return "❄️" }
+        if condition.contains("雷") { return "⛈️" }
+        if condition.contains("云") || condition.contains("阴") { return "☁️" }
+        if condition.contains("雾") || condition.contains("霾") { return "🌫️" }
+        return "☀️"
     }
 }
 

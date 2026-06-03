@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		B85926102FC982AA0036D943 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = B85926112FC982AA0036D943 /* SnapKit */; };
+		FF3C7C2E3C7FE6CB7E5B687E /* Pods_ViewDay.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8E787E0259C78038D5A99575 /* Pods_ViewDay.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,9 +29,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		074FAB9049473A9E626483CA /* Pods-ViewDay.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ViewDay.release.xcconfig"; path = "Target Support Files/Pods-ViewDay/Pods-ViewDay.release.xcconfig"; sourceTree = "<group>"; };
+		8E787E0259C78038D5A99575 /* Pods_ViewDay.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ViewDay.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B85925D52FC981F00036D943 /* ViewDay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ViewDay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B85925EE2FC981F10036D943 /* ViewDayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ViewDayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B85925F82FC981F10036D943 /* ViewDayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ViewDayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0A1278DF79DAC04C4F8569B /* Pods-ViewDay.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ViewDay.debug.xcconfig"; path = "Target Support Files/Pods-ViewDay/Pods-ViewDay.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -70,6 +74,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B85926102FC982AA0036D943 /* SnapKit in Frameworks */,
+				FF3C7C2E3C7FE6CB7E5B687E /* Pods_ViewDay.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		830A12FBBAD9F1693831561E /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				F0A1278DF79DAC04C4F8569B /* Pods-ViewDay.debug.xcconfig */,
+				074FAB9049473A9E626483CA /* Pods-ViewDay.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		A7FAD2AFE3D5D57DB2E2093A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8E787E0259C78038D5A99575 /* Pods_ViewDay.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		B85925CC2FC981F00036D943 = {
 			isa = PBXGroup;
 			children = (
@@ -97,6 +119,8 @@
 				B85925F12FC981F10036D943 /* ViewDayTests */,
 				B85925FB2FC981F10036D943 /* ViewDayUITests */,
 				B85925D62FC981F00036D943 /* Products */,
+				830A12FBBAD9F1693831561E /* Pods */,
+				A7FAD2AFE3D5D57DB2E2093A /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -117,9 +141,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B85926012FC981F10036D943 /* Build configuration list for PBXNativeTarget "ViewDay" */;
 			buildPhases = (
+				3CA3754B88389CCAE78816E8 /* [CP] Check Pods Manifest.lock */,
 				B85925D12FC981F00036D943 /* Sources */,
 				B85925D22FC981F00036D943 /* Frameworks */,
 				B85925D32FC981F00036D943 /* Resources */,
+				E4E727287AD7AF24A9581FE4 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -153,8 +179,6 @@
 				B85925F12FC981F10036D943 /* ViewDayTests */,
 			);
 			name = ViewDayTests;
-			packageProductDependencies = (
-			);
 			productName = ViewDayTests;
 			productReference = B85925EE2FC981F10036D943 /* ViewDayTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -176,8 +200,6 @@
 				B85925FB2FC981F10036D943 /* ViewDayUITests */,
 			);
 			name = ViewDayUITests;
-			packageProductDependencies = (
-			);
 			productName = ViewDayUITests;
 			productReference = B85925F82FC981F10036D943 /* ViewDayUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -258,6 +280,52 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		3CA3754B88389CCAE78816E8 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ViewDay-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E4E727287AD7AF24A9581FE4 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ViewDay/Pods-ViewDay-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ViewDay/Pods-ViewDay-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ViewDay/Pods-ViewDay-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		B85925D12FC981F00036D943 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -298,12 +366,14 @@
 /* Begin XCBuildConfiguration section */
 		B85926022FC981F10036D943 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F0A1278DF79DAC04C4F8569B /* Pods-ViewDay.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ViewDay/ViewDay.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ViewDay/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -325,12 +395,14 @@
 		};
 		B85926032FC981F10036D943 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 074FAB9049473A9E626483CA /* Pods-ViewDay.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ViewDay/ViewDay.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ViewDay/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -387,7 +459,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -450,7 +522,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

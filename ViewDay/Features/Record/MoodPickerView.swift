@@ -95,32 +95,10 @@ final class MoodPickerView: UIView {
     }
 
     private func iconText(for mood: MoodType) -> String {
-        switch mood {
-        case .calm:
-            return "🙂"
-        case .happy:
-            return "😊"
-        case .tired:
-            return "😫"
-        case .anxious:
-            return "😟"
-        case .grateful:
-            return "😄"
-        }
+        mood.displayEmoji
     }
 
     private func titleText(for mood: MoodType) -> String {
-        switch mood {
-        case .calm:
-            return "平静"
-        case .happy:
-            return "开心"
-        case .tired:
-            return "疲惫"
-        case .anxious:
-            return "焦虑"
-        case .grateful:
-            return "感恩"
-        }
+        mood.displayTitle
     }
 }

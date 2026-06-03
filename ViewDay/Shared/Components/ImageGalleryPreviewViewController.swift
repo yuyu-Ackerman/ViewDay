@@ -30,6 +30,7 @@ final class ImageGalleryPreviewViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // 需要等布局完成后才知道分页宽度，否则从缩略图进入时无法准确滚到初始图片。
         let x = CGFloat(initialIndex) * scrollView.bounds.width
         scrollView.setContentOffset(CGPoint(x: x, y: 0), animated: false)
         updatePageLabel()

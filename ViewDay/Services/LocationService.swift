@@ -1,8 +1,12 @@
 import CoreLocation
 import Foundation
 
+/// 定位流程中的业务错误。
+/// 页面层会根据权限错误展示设置入口，其他失败则回退到手动地点。
 enum LocationServiceError: Error, Equatable {
+    /// 用户拒绝或系统限制定位权限。
     case permissionDenied
+    /// 授权状态、定位结果或反地理编码不可用。
     case locationUnavailable
 }
 
@@ -10,6 +14,8 @@ enum LocationServiceError: Error, Equatable {
 /// 页面层通过协议依赖定位能力，方便在测试或预览中注入固定位置。
 protocol LocationServiceProtocol {
     /// 请求一次当前位置，并返回可保存到记录中的位置快照。
+    ///
+    /// - Parameter completion: 定位完成回调，成功时返回包含坐标和可读名称的位置快照。
     func requestCurrentLocation(completion: @escaping (Result<LocationSnapshot, Error>) -> Void)
 }
 
@@ -19,6 +25,7 @@ final class LocationService: NSObject, LocationServiceProtocol {
     private let locationManager = CLLocationManager()
     private let geocoder = CLGeocoder()
     private var completion: ((Result<LocationSnapshot, Error>) -> Void)?
+    private var remainingLocationRetries = 0
 
     override init() {
         super.init()
@@ -28,6 +35,7 @@ final class LocationService: NSObject, LocationServiceProtocol {
 
     func requestCurrentLocation(completion: @escaping (Result<LocationSnapshot, Error>) -> Void) {
         self.completion = completion
+        remainingLocationRetries = 2
 
         switch locationManager.authorizationStatus {
         case .notDetermined:
@@ -65,12 +73,13 @@ final class LocationService: NSObject, LocationServiceProtocol {
             .compactMap { $0 }
             .joined()
         let city = placemark?.locality ?? placemark?.subAdministrativeArea ?? placemark?.administrativeArea
-        let district = placemark?.subLocality ?? placemark?.thoroughfare
+        let district = placemark?.subLocality
+        let placemarkName = specificPlacemarkName(placemark?.name, city: city, district: district)
         // 名称优先级从具体兴趣点到行政区域逐级回退，避免首页只显示宽泛城市名。
         let placeName = [
             placemark?.areasOfInterest?.first,
-            placemark?.name,
             streetAddress.isEmpty ? nil : streetAddress,
+            placemarkName,
             district,
             city
         ]
@@ -118,10 +127,10 @@ final class LocationService: NSObject, LocationServiceProtocol {
             return try JSONDecoder().decode(BigDataCloudReverseGeocodeResponse.self, from: data)
         }
 
-        let city = response.city ?? response.locality ?? response.principalSubdivision
-        let district = response.locality ?? response.principalSubdivision
+        let city = response.city ?? response.principalSubdivision
+        let district = normalizedDistrict(response.locality, city: city)
         let name = [
-            response.locality,
+            normalizedSpecificName(response.locality, city: city, district: district),
             response.city,
             response.principalSubdivision,
             response.countryName
@@ -150,6 +159,30 @@ final class LocationService: NSObject, LocationServiceProtocol {
 
     private func coordinateText(for location: CLLocation) -> String {
         String(format: "%.4f, %.4f", location.coordinate.latitude, location.coordinate.longitude)
+    }
+
+    private func specificPlacemarkName(_ name: String?, city: String?, district: String?) -> String? {
+        normalizedSpecificName(name, city: city, district: district)
+    }
+
+    private func normalizedSpecificName(_ name: String?, city: String?, district: String?) -> String? {
+        guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            return nil
+        }
+
+        if name == city || name == district {
+            return nil
+        }
+
+        return name
+    }
+
+    private func normalizedDistrict(_ district: String?, city: String?) -> String? {
+        guard let district = district?.trimmingCharacters(in: .whitespacesAndNewlines), !district.isEmpty else {
+            return nil
+        }
+
+        return district == city ? nil : district
     }
 
     private func complete(_ result: Result<LocationSnapshot, Error>) {
@@ -226,6 +259,12 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        if let error = error as? CLError, error.code == .locationUnknown, remainingLocationRetries > 0 {
+            remainingLocationRetries -= 1
+            manager.requestLocation()
+            return
+        }
+
         complete(.failure(error))
     }
 }

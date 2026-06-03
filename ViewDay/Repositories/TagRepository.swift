@@ -10,6 +10,11 @@ final class TagRepository {
         self.context = context
     }
 
+    /// 保存标签；同名标签会被复用。
+    ///
+    /// - Parameter name: 用户输入的标签名称，会自动裁剪首尾空白。
+    /// - Parameter colorHex: 可选颜色值，当前用于为未来标签颜色扩展预留。
+    /// - Returns: 新建或已存在的标签。
     @discardableResult
     func saveTag(name: String, colorHex: String? = nil) throws -> Tag {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,6 +45,7 @@ final class TagRepository {
         return try mapTag(object)
     }
 
+    /// 获取全部未删除标签。
     func fetchAllTags() throws -> [Tag] {
         let request = baseTagFetchRequest()
         request.predicate = NSPredicate(format: "deletedAt == nil")
@@ -50,6 +56,7 @@ final class TagRepository {
         return try context.fetch(request).map(mapTag)
     }
 
+    /// 获取指定日记关联的全部未删除标签。
     func fetchTags(forDiaryId diaryId: UUID) throws -> [Tag] {
         let relationRequest = NSFetchRequest<NSManagedObject>(entityName: "DiaryTagRelationEntity")
         relationRequest.predicate = NSPredicate(format: "diaryId == %@", diaryId as CVarArg)
@@ -63,6 +70,7 @@ final class TagRepository {
         return try context.fetch(tagRequest).map(mapTag)
     }
 
+    /// 用新的标签集合替换指定日记的标签关系。
     func replaceTags(forDiaryId diaryId: UUID, with tags: [Tag]) throws {
         let relationRequest = NSFetchRequest<NSManagedObject>(entityName: "DiaryTagRelationEntity")
         relationRequest.predicate = NSPredicate(format: "diaryId == %@", diaryId as CVarArg)

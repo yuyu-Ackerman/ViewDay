@@ -38,6 +38,8 @@ final class LedgerViewController: ViewDayBaseViewController {
     private var transactions: [LedgerTransaction] = []
     private weak var presentedDatePicker: UIDatePicker?
 
+    // MARK: - Lifecycle
+
     init(
         selectedMonth: Date = Date(),
         selectedDateFilter: Date? = nil,
@@ -76,6 +78,8 @@ final class LedgerViewController: ViewDayBaseViewController {
         navigationController?.setNavigationBarHidden(false, animated: animated)
     }
 
+    // MARK: - Setup
+
     private func setupContent() {
         setupHeader()
         setupTransactionListCard()
@@ -111,7 +115,7 @@ final class LedgerViewController: ViewDayBaseViewController {
         }
 
         periodButton.snp.makeConstraints { make in
-            make.top.equalTo(pageTitleLabel.snp.bottom).offset(8)
+            make.top.equalTo(pageTitleLabel.snp.bottom).offset(14)
             make.leading.equalToSuperview().inset(20)
             make.trailing.lessThanOrEqualTo(dateScopeControl.snp.leading).offset(-10)
             make.height.equalTo(32)
@@ -121,9 +125,14 @@ final class LedgerViewController: ViewDayBaseViewController {
             make.top.equalTo(periodButton.snp.bottom).offset(14)
             make.leading.trailing.equalToSuperview().inset(20)
         }
+        
+        balanceChartView.snp.makeConstraints { make in
+            make.top.equalTo(summaryCardView.snp.bottom).offset(14)
+            make.leading.trailing.equalToSuperview().inset(20)
+        }
 
         modeSegmentView.snp.makeConstraints { make in
-            make.top.equalTo(summaryCardView.snp.bottom).offset(14)
+            make.top.equalTo(balanceChartView.snp.bottom).offset(14)
             make.leading.trailing.equalToSuperview().inset(20)
             make.height.equalTo(44)
         }
@@ -133,13 +142,10 @@ final class LedgerViewController: ViewDayBaseViewController {
             make.leading.trailing.equalToSuperview().inset(20)
         }
 
-        balanceChartView.snp.makeConstraints { make in
-            make.top.equalTo(categoryBarsView.snp.bottom).offset(14)
-            make.leading.trailing.equalToSuperview().inset(20)
-        }
+       
 
         transactionListCardView.snp.makeConstraints { make in
-            make.top.equalTo(balanceChartView.snp.bottom).offset(14)
+            make.top.equalTo(categoryBarsView.snp.bottom).offset(14)
             make.leading.trailing.equalToSuperview().inset(20)
             make.height.equalTo(352)
             make.bottom.equalToSuperview().inset(96)
@@ -260,6 +266,8 @@ final class LedgerViewController: ViewDayBaseViewController {
         }
     }
 
+    // MARK: - Data Loading
+
     private func reloadData() {
         do {
             summary = try dashboardRepository.monthlyLedgerSummary(for: selectedMonth)
@@ -286,6 +294,8 @@ final class LedgerViewController: ViewDayBaseViewController {
         tableView.isHidden = filteredTransactions.isEmpty
         emptyStateLabel.text = selectedDateScope == .month ? "还没有账单" : "这一天还没有账单"
     }
+
+    // MARK: - Filtering
 
     private func updatePeriodControl() {
         dateScopeControl.selectedSegmentIndex = selectedDateScope.rawValue
@@ -334,6 +344,7 @@ final class LedgerViewController: ViewDayBaseViewController {
                 sourceTransactions = filteredTransactions.filter { $0.type == .income }
             }
 
+            // 日视图需要基于当天过滤后的流水重新计算分类占比，不能直接复用月汇总。
             let grouped = Dictionary(grouping: sourceTransactions, by: \.category)
             let total = sourceTransactions.map(\.amount).reduce(Decimal.zero, +)
             return grouped.map { category, items in
@@ -350,6 +361,7 @@ final class LedgerViewController: ViewDayBaseViewController {
             guard let selectedCategory else { return summaries }
             return summaries.filter { $0.category == selectedCategory }
         case .income:
+            // Dashboard 默认只汇总支出分类；收入模式在页面内按收入流水即时计算。
             let incomeTransactions = transactions.filter { !$0.isDraft && $0.type == .income }
             let total = incomeTransactions.map(\.amount).reduce(Decimal.zero, +)
             let grouped = Dictionary(grouping: incomeTransactions, by: \.category)
@@ -391,6 +403,8 @@ final class LedgerViewController: ViewDayBaseViewController {
     private var previewTransactions: [LedgerTransaction] {
         Array(filteredTransactions.prefix(5))
     }
+
+    // MARK: - Formatting
 
     private func listTitle() -> String {
         let baseTitle: String
@@ -437,6 +451,8 @@ final class LedgerViewController: ViewDayBaseViewController {
         case .other: return "其他"
         }
     }
+
+    // MARK: - Actions
 
     @objc private func addButtonTapped() {
         guard let tabBarController else { return }
@@ -604,6 +620,8 @@ final class LedgerViewController: ViewDayBaseViewController {
     }
 }
 
+// MARK: - LedgerModeSegmentViewDelegate
+
 extension LedgerViewController: LedgerModeSegmentViewDelegate {
     func ledgerModeSegmentView(_ view: LedgerModeSegmentView, didSelect mode: LedgerMode) {
         selectedMode = mode
@@ -613,6 +631,8 @@ extension LedgerViewController: LedgerModeSegmentViewDelegate {
         applyMode()
     }
 }
+
+// MARK: - UITableViewDataSource
 
 extension LedgerViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -625,6 +645,8 @@ extension LedgerViewController: UITableViewDataSource {
         return cell ?? UITableViewCell()
     }
 }
+
+// MARK: - UITableViewDelegate
 
 extension LedgerViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {

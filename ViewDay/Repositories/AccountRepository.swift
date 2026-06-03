@@ -10,6 +10,8 @@ final class AccountRepository {
         self.context = context
     }
 
+    /// 获取默认账户。
+    /// 当前账本保存流水时没有显式账户选择，因此默认账户是账本数据的基础上下文。
     func fetchDefaultAccount() throws -> Account? {
         let request = NSFetchRequest<NSManagedObject>(entityName: "AccountEntity")
         request.predicate = NSPredicate(format: "deletedAt == nil AND isDefault == YES")

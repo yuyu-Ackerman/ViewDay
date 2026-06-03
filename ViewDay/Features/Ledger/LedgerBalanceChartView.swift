@@ -62,6 +62,7 @@ final class LedgerBalanceChartView: UIView {
         super.draw(rect)
 
         guard let context = UIGraphicsGetCurrentContext() else { return }
+        // 预留左侧纵轴和底部日期标签空间，避免图形与文字重叠。
         let chartRect = CGRect(x: 48, y: 60, width: rect.width - 72, height: rect.height - 86)
         let scale = yAxisScale()
         drawGrid(in: chartRect, context: context)
@@ -97,6 +98,7 @@ final class LedgerBalanceChartView: UIView {
             return CGPoint(x: x, y: y)
         }
 
+        // 使用平滑曲线而不是折线，让月度趋势在小卡片中更容易扫读。
         let linePath = smoothedPath(points: chartPoints)
         let fillPath = linePath.copy() as? UIBezierPath ?? UIBezierPath()
         fillPath.addLine(to: CGPoint(x: chartPoints.last?.x ?? rect.maxX, y: rect.maxY))
@@ -185,6 +187,7 @@ final class LedgerBalanceChartView: UIView {
             return (-1, 1, [1, 0.5, 0, -0.5, -1])
         }
 
+        // 即使所有余额接近，也保留最小跨度，避免曲线被压到图表边缘。
         let span = max(rawMax - rawMin, max(abs(rawMax), abs(rawMin), 1) * 0.2)
         let padding = span * 0.16
         let minValue = niceFloor(rawMin - padding)
@@ -207,6 +210,7 @@ final class LedgerBalanceChartView: UIView {
     }
 
     private func niceStep(for magnitude: Double) -> Double {
+        // 让纵轴刻度落在 0.2、0.5、1 倍数量级上，标签比原始小数更稳定。
         let exponent = floor(log10(max(magnitude, 1)))
         let base = pow(10, exponent)
         let normalized = magnitude / base

@@ -5,9 +5,14 @@ import Foundation
 import WeatherKit
 #endif
 
+/// 天气获取过程中的业务错误。
+/// 页面层会把这些错误转换为可手动填写天气的提示。
 enum WeatherSnapshotServiceError: Error {
+    /// 当前系统或构建配置无法使用 WeatherKit。
     case weatherKitUnavailable
+    /// 位置快照没有经纬度，无法调用天气接口。
     case coordinatesUnavailable
+    /// 第三方服务响应缺失、HTTP 状态异常或 JSON 无法映射。
     case invalidResponse
 }
 

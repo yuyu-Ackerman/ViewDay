@@ -189,6 +189,11 @@ final class DiaryEditViewController: ViewDayBaseViewController {
 
     private func saveEditedDiary(isDraft: Bool) {
         view.endEditing(true)
+        guard selectedDate <= Date() else {
+            showAlert(title: "不能编辑未来日记", message: "记录时间不能晚于当前时间。")
+            return
+        }
+
         if audioRecorderService.isRecording {
             selectedAudioURL = audioRecorderService.stopRecording()
             updateAudioStatus()
@@ -227,6 +232,7 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         datePicker.datePickerMode = .dateAndTime
         datePicker.preferredDatePickerStyle = .inline
         datePicker.date = selectedDate
+        datePicker.maximumDate = Date()
         presentedDatePicker = datePicker
 
         let viewController = UIViewController()

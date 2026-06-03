@@ -15,6 +15,10 @@ final class AttachmentRepository {
         self.storageService = storageService
     }
 
+    /// 保存或更新附件元数据。
+    ///
+    /// - Parameter attachment: 已经写入本地文件系统的附件信息。
+    /// - Returns: 从 Core Data 重新映射后的附件模型。
     @discardableResult
     func save(_ attachment: Attachment) throws -> Attachment {
         // localId 是附件的本地稳定身份，支持后续补写远端 URL 或同步状态。
@@ -44,6 +48,7 @@ final class AttachmentRepository {
         return try mapAttachment(object)
     }
 
+    /// 获取某个业务对象下的所有未删除附件。
     func fetchAttachments(ownerId: UUID, ownerType: AttachmentOwnerType) throws -> [Attachment] {
         let request = baseFetchRequest()
         request.predicate = NSPredicate(format: "deletedAt == nil AND ownerId == %@ AND ownerType == %@", ownerId as CVarArg, ownerType.rawValue)
@@ -51,6 +56,8 @@ final class AttachmentRepository {
         return try context.fetch(request).map(mapAttachment)
     }
 
+    /// 获取拥有指定类型附件的业务对象 ID 集合。
+    /// 列表页用它快速判断记录是否需要展示附件状态。
     func fetchOwnerIdsWithAttachments(ownerType: AttachmentOwnerType, attachmentType: AttachmentType) throws -> Set<UUID> {
         let request = baseFetchRequest()
         request.predicate = NSPredicate(format: "deletedAt == nil AND ownerType == %@ AND type == %@", ownerType.rawValue, attachmentType.rawValue)
@@ -59,10 +66,12 @@ final class AttachmentRepository {
         return Set(attachments.map(\.ownerId))
     }
 
+    /// 软删除某个业务对象下的所有附件。
     func softDeleteAttachments(ownerId: UUID, ownerType: AttachmentOwnerType) throws {
         try softDeleteMatchingAttachments(ownerId: ownerId, ownerType: ownerType, attachmentType: nil)
     }
 
+    /// 软删除某个业务对象下指定类型的附件。
     func softDeleteAttachments(ownerId: UUID, ownerType: AttachmentOwnerType, attachmentType: AttachmentType) throws {
         try softDeleteMatchingAttachments(ownerId: ownerId, ownerType: ownerType, attachmentType: attachmentType)
     }

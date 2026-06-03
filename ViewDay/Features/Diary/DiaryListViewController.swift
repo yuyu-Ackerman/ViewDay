@@ -441,12 +441,6 @@ extension DiaryListViewController: DiaryFilterBarViewDelegate {
     }
 
     private func moodTitle(_ mood: MoodType) -> String {
-        switch mood {
-        case .calm: return "平静"
-        case .happy: return "开心"
-        case .tired: return "疲惫"
-        case .anxious: return "焦虑"
-        case .grateful: return "感恩"
-        }
+        mood.displayTitle
     }
 }

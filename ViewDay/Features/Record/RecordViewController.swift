@@ -22,6 +22,7 @@ final class RecordViewController: ViewDayBaseViewController {
     private let actionBar = UIStackView()
     private let draftButton = UIButton(type: .system)
     private let doneButton = UIButton(type: .system)
+    private let refreshControl = UIRefreshControl()
 
     private var selectedMood: MoodType = .calm
     private weak var diaryTextInputCard: RecordTextInputCardView?
@@ -34,9 +35,12 @@ final class RecordViewController: ViewDayBaseViewController {
     private var selectedAudioURL: URL?
     private var selectedTags: [Tag] = []
     private var selectedRecordDate = Date()
+    private var recordDateWasManuallySelected = false
+    private var recordDateRefreshTimer: Timer?
     private weak var presentedDatePicker: UIDatePicker?
     private var currentLocation: LocationSnapshot?
     private var currentWeather: WeatherSnapshot?
+    private var locationRequestID = UUID()
 
     // MARK: - Lifecycle
 
@@ -70,6 +74,7 @@ final class RecordViewController: ViewDayBaseViewController {
         super.viewDidLoad()
         navigationItem.title = nil
         setupKeyboardDismiss()
+        setupRefreshInteractions()
         setupContent()
         selectedImageStripView.delegate = self
         restoreDraftIfAvailable()
@@ -79,11 +84,14 @@ final class RecordViewController: ViewDayBaseViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        startRecordDateRefreshTimer()
+        refreshAutomaticRecordDate()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.setNavigationBarHidden(false, animated: animated)
+        stopRecordDateRefreshTimer()
     }
 
     // MARK: - Setup
@@ -192,6 +200,17 @@ final class RecordViewController: ViewDayBaseViewController {
         view.addGestureRecognizer(tapGesture)
     }
 
+    private func setupRefreshInteractions() {
+        refreshControl.tintColor = ViewDayTheme.accent
+        refreshControl.addTarget(self, action: #selector(refreshControlTriggered), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
+
+        let swipeGesture = UISwipeGestureRecognizer(target: self, action: #selector(refreshControlTriggered))
+        swipeGesture.direction = .up
+        swipeGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(swipeGesture)
+    }
+
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
@@ -297,6 +316,30 @@ final class RecordViewController: ViewDayBaseViewController {
         return formatter.string(from: selectedRecordDate)
     }
 
+    private func startRecordDateRefreshTimer() {
+        stopRecordDateRefreshTimer()
+        recordDateRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.refreshAutomaticRecordDate()
+        }
+    }
+
+    private func stopRecordDateRefreshTimer() {
+        recordDateRefreshTimer?.invalidate()
+        recordDateRefreshTimer = nil
+    }
+
+    private func refreshAutomaticRecordDate() {
+        guard !recordDateWasManuallySelected else { return }
+        selectedRecordDate = Date()
+        refreshMetadataRows()
+    }
+
+    private func refreshAutomaticRecordDateBeforePersisting() {
+        guard !recordDateWasManuallySelected else { return }
+        selectedRecordDate = Date()
+        refreshMetadataRows()
+    }
+
     @objc private func calendarButtonTapped() {
         view.endEditing(true)
 
@@ -304,6 +347,7 @@ final class RecordViewController: ViewDayBaseViewController {
         datePicker.datePickerMode = .dateAndTime
         datePicker.preferredDatePickerStyle = .inline
         datePicker.date = selectedRecordDate
+        datePicker.maximumDate = Date()
         presentedDatePicker = datePicker
 
         let viewController = UIViewController()
@@ -328,6 +372,7 @@ final class RecordViewController: ViewDayBaseViewController {
     @objc private func applyPickedRecordDate() {
         if let datePicker = presentedDatePicker {
             selectedRecordDate = datePicker.date
+            recordDateWasManuallySelected = true
             refreshMetadataRows()
         }
         dismissDatePicker()
@@ -345,6 +390,12 @@ final class RecordViewController: ViewDayBaseViewController {
 
     private func saveCurrentMode(isDraft: Bool) {
         view.endEditing(true)
+        refreshAutomaticRecordDateBeforePersisting()
+        guard selectedRecordDate <= Date() else {
+            showResult(title: "不能选择未来时间", message: "记录时间不能晚于当前时间。")
+            return
+        }
+
         if audioRecorderService.isRecording {
             // 保存前先结束录音，确保附件路径已经稳定可写入仓储。
             selectedAudioURL = audioRecorderService.stopRecording()
@@ -458,6 +509,7 @@ final class RecordViewController: ViewDayBaseViewController {
         selectedAudioURL = nil
         selectedTags = []
         selectedRecordDate = Date()
+        recordDateWasManuallySelected = false
         updateAttachmentStateViews()
         refreshMetadataRows()
     }
@@ -481,28 +533,34 @@ final class RecordViewController: ViewDayBaseViewController {
     // MARK: - Location And Weather
 
     private func requestLocationAndWeather() {
+        let requestID = UUID()
+        locationRequestID = requestID
+
         locationService.requestCurrentLocation { [weak self] result in
             DispatchQueue.main.async {
+                guard let self, self.locationRequestID == requestID else { return }
+
                 switch result {
                 case let .success(location):
-                    self?.currentLocation = location
-                    self?.refreshMetadataRows()
-                    self?.requestWeather(for: location)
+                    self.currentLocation = location
+                    self.refreshMetadataRows()
+                    self.requestWeather(for: location)
                 case let .failure(error):
-                    // 定位失败时仍允许继续记录，并把地点明确标记为手动编辑入口。
-                    self?.currentLocation = LocationSnapshot(
-                        name: "手动填写地点",
-                        city: nil,
-                        district: nil,
-                        address: nil,
-                        latitude: nil,
-                        longitude: nil,
-                        isManuallyEdited: true
-                    )
-                    self?.refreshMetadataRows()
                     if (error as? LocationServiceError) == .permissionDenied {
-                        self?.presentPermissionSettingsAlert(title: "无法定位", message: "请在系统设置中允许定位，或继续手动填写地点。")
+                        // 权限拒绝时才落到手动地点；普通定位抖动保留自动重试入口。
+                        self.currentLocation = LocationSnapshot(
+                            name: "手动填写地点",
+                            city: nil,
+                            district: nil,
+                            address: nil,
+                            latitude: nil,
+                            longitude: nil,
+                            isManuallyEdited: true
+                        )
+                        self.presentPermissionSettingsAlert(title: "无法定位", message: "请在系统设置中允许定位，或继续手动填写地点。")
                     }
+                    self.refreshMetadataRows()
+                    self.refreshControl.endRefreshing()
                 }
             }
         }
@@ -517,17 +575,32 @@ final class RecordViewController: ViewDayBaseViewController {
                 await MainActor.run {
                     self.currentWeather = weather
                     self.refreshMetadataRows()
+                    self.refreshControl.endRefreshing()
                 }
             } catch {
                 await MainActor.run {
-                    self.currentWeather = nil
                     if showsFailureAlert {
                         self.showResult(title: "天气获取失败", message: weatherFailureMessage(error))
                     }
                     self.refreshMetadataRows()
+                    self.refreshControl.endRefreshing()
                 }
             }
         }
+    }
+
+    @objc private func refreshControlTriggered() {
+        refreshCurrentRecordContext()
+    }
+
+    private func refreshCurrentRecordContext() {
+        view.endEditing(true)
+        recordDateWasManuallySelected = false
+        selectedRecordDate = Date()
+        currentLocation = nil
+        currentWeather = nil
+        refreshMetadataRows()
+        requestLocationAndWeather()
     }
 
     private func refreshMetadataRows() {
@@ -576,8 +649,10 @@ final class RecordViewController: ViewDayBaseViewController {
                 longitude: self?.currentLocation?.longitude,
                 isManuallyEdited: true
             )
-            self?.currentWeather = nil
             self?.refreshMetadataRows()
+            if let location = self?.currentLocation {
+                self?.requestWeather(for: location)
+            }
         })
         present(alertController, animated: true)
     }
@@ -764,6 +839,7 @@ extension RecordViewController {
             transactionCategory: categoryPickerCard?.selectedCategory.rawValue,
             transactionText: transactionTextInputCard?.textValue,
             selectedRecordDate: selectedRecordDate,
+            recordDateWasManuallySelected: recordDateWasManuallySelected,
             imagePaths: imagePaths,
             audioPath: selectedAudioURL?.path,
             tagIds: selectedTags.map(\.localId)
@@ -776,6 +852,8 @@ extension RecordViewController {
         guard let draft = loadStoredDraft() else { return }
 
         selectedRecordDate = draft.selectedRecordDate
+        recordDateWasManuallySelected = draft.recordDateWasManuallySelected ?? false
+        refreshAutomaticRecordDate()
         if let mood = draft.selectedMood.flatMap(MoodType.init(rawValue:)) {
             selectedMood = mood
         }
@@ -951,6 +1029,7 @@ private struct RecordDraft: Codable {
     var transactionCategory: String?
     var transactionText: String?
     var selectedRecordDate: Date
+    var recordDateWasManuallySelected: Bool?
     var imagePaths: [String]
     var audioPath: String?
     var tagIds: [UUID]

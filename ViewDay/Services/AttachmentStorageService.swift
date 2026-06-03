@@ -1,7 +1,10 @@
 import UIKit
 
+/// 附件文件存储错误。
 enum AttachmentStorageError: Error {
+    /// 图片无法编码成 JPEG 数据。
     case invalidImageData
+    /// 系统 Documents 目录不可用。
     case documentsDirectoryUnavailable
 }
 

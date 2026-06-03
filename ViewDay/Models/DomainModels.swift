@@ -18,6 +18,26 @@ enum MoodType: String, CaseIterable {
     case tired
     case anxious
     case grateful
+
+    var displayTitle: String {
+        switch self {
+        case .calm: return "平静"
+        case .happy: return "开心"
+        case .tired: return "疲惫"
+        case .anxious: return "焦虑"
+        case .grateful: return "感恩"
+        }
+    }
+
+    var displayEmoji: String {
+        switch self {
+        case .calm: return "🙂"
+        case .happy: return "😊"
+        case .tired: return "😫"
+        case .anxious: return "😟"
+        case .grateful: return "😄"
+        }
+    }
 }
 
 /// 账本流水的收支方向。

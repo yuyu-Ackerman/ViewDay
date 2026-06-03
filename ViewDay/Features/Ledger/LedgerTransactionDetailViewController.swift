@@ -31,12 +31,19 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "账单详情"
-        navigationItem.rightBarButtonItems = [
-            UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(deleteButtonTapped)),
-            UIBarButtonItem(title: "编辑", style: .plain, target: self, action: #selector(editButtonTapped))
-        ]
+        configureNavigationItems()
         imageGridView.delegate = self
         setupContent()
+    }
+
+    private func configureNavigationItems() {
+        var items = [
+            UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(deleteButtonTapped))
+        ]
+        if !isFutureTransaction {
+            items.append(UIBarButtonItem(title: "编辑", style: .plain, target: self, action: #selector(editButtonTapped)))
+        }
+        navigationItem.rightBarButtonItems = items
     }
 
     private func setupContent() {
@@ -113,6 +120,11 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
     }
 
     @objc private func editButtonTapped() {
+        guard !isFutureTransaction else {
+            showFutureEditAlert()
+            return
+        }
+
         let editViewController = LedgerTransactionEditViewController(
             transaction: transaction,
             transactionRepository: transactionRepository,
@@ -131,9 +143,20 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
             transaction = updatedTransaction
             contentView.subviews.forEach { $0.removeFromSuperview() }
             setupContent()
+            configureNavigationItems()
         } catch {
             onUpdate?()
         }
+    }
+
+    private var isFutureTransaction: Bool {
+        transaction.transactionDate > Date()
+    }
+
+    private func showFutureEditAlert() {
+        let alertController = UIAlertController(title: "不能编辑未来账单", message: "这笔账单的记录时间还没到。", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "好", style: .default))
+        present(alertController, animated: true)
     }
 
     private func signedAmountText() -> String {

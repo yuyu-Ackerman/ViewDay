@@ -1,9 +1,13 @@
 import AVFoundation
 import Foundation
 
+/// 录音服务错误。
 enum AudioRecorderServiceError: Error {
+    /// 麦克风权限未授权。
     case permissionDenied
+    /// 系统 Documents 目录不可用。
     case documentsDirectoryUnavailable
+    /// 当前录音器状态异常，无法开始或复用录音。
     case recorderUnavailable
 }
 

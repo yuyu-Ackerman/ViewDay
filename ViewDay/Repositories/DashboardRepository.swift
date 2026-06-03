@@ -17,6 +17,10 @@ final class DashboardRepository {
         self.calendar = calendar
     }
 
+    /// 聚合指定日期的首页概览数据。
+    ///
+    /// - Parameter date: 需要展示的日期。
+    /// - Returns: 包含日记、收支和上下文快照的首页模型。
     func dailyOverview(for date: Date) throws -> DailyOverview {
         // 首页只展示正式记录；草稿仍保存在仓储中，但不参与当天摘要统计。
         let diaries = try diaryRepository.fetchDiaries(on: date, calendar: calendar)
@@ -41,11 +45,15 @@ final class DashboardRepository {
             diaries: diaries,
             todayIncome: income,
             todayExpense: expense,
-            todayBalance: income - expense,
+            todayBalance: try cumulativeBalance(through: date),
             latestTransaction: transactions.first(where: { !$0.isDraft })
         )
     }
 
+    /// 聚合指定日期所在月份的账本汇总。
+    ///
+    /// - Parameter date: 月份中的任意日期。
+    /// - Returns: 包含月收入、支出、分类占比和每日累计余额的汇总模型。
     func monthlyLedgerSummary(for date: Date) throws -> MonthlyLedgerSummary {
         let interval = monthInterval(containing: date)
         // 月账本统计排除草稿，避免未完成录入影响收入、支出和图表。
@@ -69,6 +77,21 @@ final class DashboardRepository {
 
     private func monthInterval(containing date: Date) -> DateInterval {
         calendar.dateInterval(of: .month, for: date) ?? DateInterval(start: date, duration: 0)
+    }
+
+    private func cumulativeBalance(through date: Date) throws -> Decimal {
+        let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) ?? date
+        let transactions = try transactionRepository.fetchTransactions(in: DateInterval(start: .distantPast, end: startOfNextDay))
+            .filter { !$0.isDraft }
+        let income = transactions
+            .filter { $0.type == .income }
+            .map(\.amount)
+            .reduce(Decimal.zero, +)
+        let expense = transactions
+            .filter { $0.type == .expense }
+            .map(\.amount)
+            .reduce(Decimal.zero, +)
+        return income - expense
     }
 
     private func makeCategorySummaries(from transactions: [LedgerTransaction], total: Decimal) -> [CategorySummary] {

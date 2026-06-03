@@ -31,6 +31,7 @@ final class AudioAttachmentPlayerView: UIView {
         audioURL = url
         isHidden = false
 
+        // 配置阶段只读取时长，真正播放时再创建 player，避免列表复用时长期占用音频资源。
         if let player = try? AVAudioPlayer(contentsOf: url) {
             durationLabel.text = durationText(player.duration)
         } else {
@@ -89,6 +90,7 @@ final class AudioAttachmentPlayerView: UIView {
 
         do {
             let session = AVAudioSession.sharedInstance()
+            // 详情页播放语音时使用 playback，避免静音开关影响用户主动点击后的回放。
             try session.setCategory(.playback, mode: .default)
             try session.setActive(true)
 

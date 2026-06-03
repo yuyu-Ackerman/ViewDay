@@ -4,15 +4,35 @@ import Foundation
 /// 账本流水仓储协议。
 /// 提供按天、按月和最近记录查询，供首页、账本页和详情页复用。
 protocol TransactionRepositoryProtocol {
+    /// 保存或更新账本流水。
+    ///
+    /// - Parameter transaction: 待保存的流水领域模型。
+    /// - Returns: 从 Core Data 重新映射后的流水模型。
     @discardableResult
     func save(_ transaction: LedgerTransaction) throws -> LedgerTransaction
+
+    /// 按本地 ID 获取单笔流水。
     func fetchTransaction(id: UUID) throws -> LedgerTransaction?
+
+    /// 获取指定日期内的所有未删除流水，包含草稿。
     func fetchTransactions(on date: Date, calendar: Calendar) throws -> [LedgerTransaction]
+
+    /// 获取指定时间区间内的所有未删除流水。
     func fetchTransactions(in interval: DateInterval) throws -> [LedgerTransaction]
+
+    /// 获取指定日期所在月份的所有未删除流水。
     func fetchTransactions(inMonthContaining date: Date, calendar: Calendar) throws -> [LedgerTransaction]
+
+    /// 获取最近正式流水，排除草稿。
     func fetchRecentTransactions(limit: Int) throws -> [LedgerTransaction]
+
+    /// 获取指定日期内最新一笔正式流水。
     func fetchLatestTransaction(on date: Date, calendar: Calendar) throws -> LedgerTransaction?
+
+    /// 更新流水内容和元数据，并刷新更新时间与同步状态。
     func updateTransaction(_ transaction: LedgerTransaction) throws
+
+    /// 软删除流水，并清理其附件。
     func softDeleteTransaction(id: UUID) throws
 }
 
