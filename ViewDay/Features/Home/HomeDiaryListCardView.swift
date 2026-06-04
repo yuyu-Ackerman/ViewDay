@@ -29,14 +29,14 @@ final class HomeDiaryListCardView: UIView {
         diaries: [DiaryEntry],
         imagePathsByDiaryId: [UUID: [String]] = [:],
         tagsByDiaryId: [UUID: [Tag]] = [:],
-        trailingText: String = "查看详情 >"
+        //trailingText: String = "查看详情 >"
     ) {
         stackView.arrangedSubviews.forEach { view in
             stackView.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
 
-        countLabel.text = trailingText
+       // countLabel.text = trailingText
 
         guard !diaries.isEmpty else {
             stackView.addArrangedSubview(EmptyDiaryView())
@@ -328,9 +328,9 @@ private final class DiarySummaryRow: UIView {
 }
 
 private final class EmptyDiaryView: UIView {
-    private let subtitleLabel = UILabel()
+    // private let subtitleLabel = UILabel()
     private let bodyLabel = UILabel()
-    private let accessoryLabel = UILabel()
+    // private let accessoryLabel = UILabel()
 
     init() {
         super.init(frame: .zero)
@@ -343,36 +343,36 @@ private final class EmptyDiaryView: UIView {
     }
 
     private func setup() {
-        subtitleLabel.text = "还没有记录"
-        subtitleLabel.font = .systemFont(ofSize: 14, weight: .medium)
-        subtitleLabel.textColor = ViewDayTheme.secondaryText
+//        subtitleLabel.text = "还没有记录"
+//        subtitleLabel.font = .systemFont(ofSize: 14, weight: .medium)
+//        subtitleLabel.textColor = ViewDayTheme.secondaryText
 
-        bodyLabel.text = "写下一点今天发生的事，哪怕只是一句话。"
+        bodyLabel.text = "还没有记录"
         bodyLabel.font = .systemFont(ofSize: 15, weight: .regular)
         bodyLabel.textColor = ViewDayTheme.primaryText
         bodyLabel.numberOfLines = 2
 
-        accessoryLabel.text = "去记录"
-        accessoryLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        accessoryLabel.textColor = ViewDayTheme.secondaryText
+//        accessoryLabel.text = "去记录"
+//        accessoryLabel.font = .systemFont(ofSize: 13, weight: .medium)
+//        accessoryLabel.textColor = ViewDayTheme.secondaryText
 
-        addSubview(subtitleLabel)
+       // addSubview(subtitleLabel)
         addSubview(bodyLabel)
-        addSubview(accessoryLabel)
+        // addSubview(accessoryLabel)
 
-        subtitleLabel.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
-        }
+//        subtitleLabel.snp.makeConstraints { make in
+//            make.top.leading.trailing.equalToSuperview()
+//        }
 
         bodyLabel.snp.makeConstraints { make in
-            make.top.equalTo(subtitleLabel.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview()
-        }
-
-        accessoryLabel.snp.makeConstraints { make in
-            make.top.equalTo(bodyLabel.snp.bottom).offset(12)
+            make.top.equalToSuperview().offset(8)
             make.leading.trailing.bottom.equalToSuperview()
         }
+
+//        accessoryLabel.snp.makeConstraints { make in
+//            make.top.equalTo(bodyLabel.snp.bottom).offset(12)
+//            make.leading.trailing.bottom.equalToSuperview()
+//        }
     }
 }
 

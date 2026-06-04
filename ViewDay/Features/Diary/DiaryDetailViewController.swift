@@ -4,9 +4,13 @@ import UIKit
 /// 日记详情控制器。
 /// 展示单篇日记的正文、元信息、附件和标签，并提供编辑、收藏和删除入口。
 final class DiaryDetailViewController: ViewDayBaseViewController {
+    /// 删除成功后通知来源列表刷新。
     var onDelete: (() -> Void)?
+    /// 收藏、编辑等内容变化后通知来源页面同步状态。
     var onUpdate: (() -> Void)?
 
+    /// 当前详情页展示的日记。
+    /// 编辑返回后会重新从仓储读取，避免继续展示旧快照。
     private var diary: DiaryEntry
     private let diaryRepository: DiaryRepositoryProtocol
     private let attachmentRepository: AttachmentRepository
@@ -41,6 +45,8 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         setupContent()
     }
 
+    /// 配置详情页操作按钮。
+    /// 未来时间的日记不允许编辑，只保留删除和收藏，避免用户继续修改未到达日期的内容。
     private func configureNavigationItems() {
         let deleteButtonItem = UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(deleteButtonTapped))
         let favoriteButtonItem = UIBarButtonItem(image: UIImage(systemName: diary.isFavorite ? "star.fill" : "star"), style: .plain, target: self, action: #selector(favoriteButtonTapped))
@@ -54,6 +60,9 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         updateFavoriteButtonAppearance()
     }
 
+    /// 构建详情内容。
+    ///
+    /// 附件区域按“图片网格 -> 音频播放器”的顺序追加，只有存在附件时才扩展滚动内容底部。
     private func setupContent() {
         let headerCard = InfoCardView(title: formattedDate(diary.entryDate))
         headerCard.addRow(title: "时间", value: formattedTime(diary.entryDate))
@@ -120,6 +129,8 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 读取日记附件。
+    /// 详情页将读取失败视为空附件，避免单个附件异常阻塞正文查看。
     private func fetchAttachments() -> [Attachment] {
         (try? attachmentRepository.fetchAttachments(ownerId: diary.localId, ownerType: .diary)) ?? []
     }
@@ -133,6 +144,8 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         present(alertController, animated: true)
     }
 
+    /// 执行软删除。
+    /// 仓储会负责清理附件和标签关系，详情页只处理成功后的导航和回调。
     private func deleteDiary() {
         do {
             try diaryRepository.softDeleteDiary(id: diary.localId)
@@ -174,6 +187,8 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         navigationController?.pushViewController(editViewController, animated: true)
     }
 
+    /// 编辑返回后重建详情内容。
+    /// 直接移除并重建子视图，比逐项 diff 更简单，也能同步附件、标签和收藏按钮状态。
     private func reloadDiary() {
         do {
             guard let updatedDiary = try diaryRepository.fetchDiary(id: diary.localId) else { return }
@@ -190,6 +205,8 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         favoriteButtonItem?.tintColor = diary.isFavorite ? ViewDayTheme.accent : ViewDayTheme.iconPrimary
     }
 
+    /// 是否为未来时间的日记。
+    /// 当前产品规则禁止编辑未来日记，但仍允许用户删除错误创建的记录。
     private var isFutureDiary: Bool {
         diary.entryDate > Date()
     }
@@ -232,6 +249,8 @@ final class DiaryDetailViewController: ViewDayBaseViewController {
         return tags.isEmpty ? "未添加标签" : tags.map { "#\($0.name)" }.joined(separator: "、")
     }
 
+    /// 根据中文天气描述选择轻量图标。
+    /// 天气来源可能是自动接口或手动填写，因此这里只做包含关系匹配。
     private func weatherIcon(for condition: String) -> String {
         if condition.contains("雨") { return "🌧️" }
         if condition.contains("雪") { return "❄️" }

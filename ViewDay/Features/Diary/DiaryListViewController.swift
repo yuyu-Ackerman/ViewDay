@@ -4,8 +4,11 @@ import UIKit
 /// 日记列表控制器。
 /// 支持按筛选条件和搜索文本浏览日记，并跳转到详情或编辑页。
 final class DiaryListViewController: UIViewController {
+    /// 日记主体数据源，负责查询、收藏和软删除后的列表刷新。
     private let diaryRepository: DiaryRepositoryProtocol
+    /// 附件仓储用于判断图文筛选，并为可见单元格补齐缩略图。
     private let attachmentRepository: AttachmentRepository
+    /// 标签仓储用于给时间线单元格展示标签摘要。
     private let tagRepository: TagRepository
     private let pageTitleLabel = UILabel()
     private let subtitleLabel = UILabel()
@@ -15,9 +18,16 @@ final class DiaryListViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
     private let emptyStateLabel = UILabel()
 
+    /// 当前查询范围内的所有日记。
+    /// 搜索条件先作用在该数组上，再交给筛选条件做二次过滤。
     private var allDiaries: [DiaryEntry] = []
+    /// 最终展示到列表中的日记。
+    /// 该数组会被按日期分组后喂给 table view。
     private var visibleDiaries: [DiaryEntry] = []
+    /// 可见日记的标签缓存。
+    /// 只为当前页可见数据补齐，避免一次性读取最近 80 条以外的附件和标签。
     private var tagsByDiaryId: [UUID: [Tag]] = [:]
+    /// 可见日记的图片路径缓存，用于时间线缩略图展示。
     private var imagePathsByDiaryId: [UUID: [String]] = [:]
     private var selectedFilter: DiaryFilter = .all
     private var selectedMood: MoodType?
@@ -163,6 +173,9 @@ final class DiaryListViewController: UIViewController {
         }
     }
 
+    /// 重新读取列表数据，并按当前搜索和日期条件刷新展示。
+    ///
+    /// 日期筛选命中时直接查询当天全部日记；无日期筛选时只取最近记录，控制首页式列表的查询量。
     private func reloadData() {
         do {
             let diaries: [DiaryEntry]
@@ -181,6 +194,8 @@ final class DiaryListViewController: UIViewController {
         }
     }
 
+    /// 判断日记是否命中搜索框。
+    /// 搜索覆盖正文、地点和心情，保持与输入框提示一致。
     private func matchesSearch(_ diary: DiaryEntry) -> Bool {
         guard let searchText = searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines), !searchText.isEmpty else {
             return true
@@ -198,6 +213,10 @@ final class DiaryListViewController: UIViewController {
         return values.contains { $0.localizedCaseInsensitiveContains(searchText) }
     }
 
+    /// 应用顶部筛选栏条件。
+    ///
+    /// 图文筛选需要额外查询附件 ownerId；心情筛选在未选具体心情时回退为正式日记列表，
+    /// 这样取消选择不会把草稿混入默认视图。
     private func applyFilter() {
         switch selectedFilter {
         case .all:
@@ -224,6 +243,9 @@ final class DiaryListViewController: UIViewController {
         tableView.reloadData()
     }
 
+    /// 为当前可见日记补齐标签和图片元数据。
+    ///
+    /// 这一步放在过滤之后执行，避免对被搜索或筛选排除的日记做无用附件查询。
     private func reloadVisibleMetadata() {
         tagsByDiaryId = [:]
         imagePathsByDiaryId = [:]
@@ -237,6 +259,7 @@ final class DiaryListViewController: UIViewController {
         }
     }
 
+    /// 根据当前搜索、日期和筛选条件生成更贴近场景的空状态文案。
     private func updateEmptyState() {
         let isEmpty = visibleDiaries.isEmpty
         emptyStateLabel.isHidden = !isEmpty
@@ -271,6 +294,8 @@ final class DiaryListViewController: UIViewController {
         return formatter.string(from: Date())
     }
 
+    /// 日期按钮兼具“选择日期”和“清除日期筛选”两种行为。
+    /// 已经处在日期筛选状态时再次点击会直接回到最近日记列表。
     @objc private func dateFilterButtonTapped() {
         view.endEditing(true)
         if selectedDateFilter != nil {
@@ -283,6 +308,8 @@ final class DiaryListViewController: UIViewController {
         presentDatePicker()
     }
 
+    /// 展示日期筛选器。
+    /// 使用独立导航容器承载 inline picker，保证在小屏幕上仍有清晰的取消入口。
     private func presentDatePicker() {
         let datePicker = UIDatePicker()
         datePicker.datePickerMode = .date
@@ -342,6 +369,8 @@ extension DiaryListViewController: UITableViewDataSource {
         return cell ?? UITableViewCell()
     }
 
+    /// 按自然日分组后的列表数据。
+    /// 组和组内记录都按时间倒序排列，符合日记时间线从近到远浏览的预期。
     private var groupedDiaries: [(date: Date, items: [DiaryEntry])] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: visibleDiaries) { diary in
@@ -353,6 +382,8 @@ extension DiaryListViewController: UITableViewDataSource {
             .sorted { $0.date > $1.date }
     }
 
+    /// 切换收藏状态并重新查询列表。
+    /// 重新查询可以同步更新筛选结果，例如在“收藏”列表中取消收藏后立即移出当前列表。
     private func toggleFavorite(for diary: DiaryEntry) {
         do {
             try diaryRepository.updateFavorite(id: diary.localId, isFavorite: !diary.isFavorite)
@@ -422,6 +453,8 @@ extension DiaryListViewController: DiaryFilterBarViewDelegate {
         }
     }
 
+    /// 展示心情二级筛选。
+    /// 选择“全部心情”会保留心情筛选模式，但不限定具体枚举值。
     private func presentMoodFilter() {
         let alertController = UIAlertController(title: "选择心情", message: nil, preferredStyle: .actionSheet)
         MoodType.allCases.forEach { mood in

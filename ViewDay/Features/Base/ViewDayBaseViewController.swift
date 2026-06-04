@@ -12,6 +12,7 @@ class ViewDayBaseViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = ViewDayTheme.background
+        scrollView.showsVerticalScrollIndicator = false
         setupScrollLayout()
     }
 

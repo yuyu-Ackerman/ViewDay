@@ -6,6 +6,8 @@ import UIKit
 final class DiaryTimelineCell: UITableViewCell {
     static let reuseIdentifier = "DiaryTimelineCell"
 
+    /// 收藏按钮点击回调。
+    /// 单元格不直接写仓储，避免复用中的 cell 持有数据层依赖。
     var onFavoriteToggle: (() -> Void)?
 
     private let timelineLineView = UIView()
@@ -31,6 +33,11 @@ final class DiaryTimelineCell: UITableViewCell {
         nil
     }
 
+    /// 配置时间线单元格。
+    ///
+    /// - Parameter diary: 需要展示的日记。
+    /// - Parameter tags: 已由列表页批量读取好的标签，避免 cell 内部触发仓储查询。
+    /// - Parameter imagePaths: 已由列表页批量读取好的图片路径，用于缩略摘要。
     func configure(with diary: DiaryEntry, tags: [Tag] = [], imagePaths: [String] = []) {
         timeLabel.text = timeText(diary.entryDate)
         moodLabel.text = "\(diary.mood.displayEmoji)  \(diary.isDraft ? "草稿 · " : "")\(diary.mood.displayTitle)"
@@ -177,6 +184,8 @@ final class DiaryTimelineCell: UITableViewCell {
         onFavoriteToggle?()
     }
 
+    /// 配置最多三个标签。
+    /// 时间线 cell 以扫读为主，过多标签会挤压正文和收藏按钮，因此详情页再展示完整标签集合。
     private func configureTags(_ tags: [Tag]) {
         tagsStackView.arrangedSubviews.forEach { view in
             tagsStackView.removeArrangedSubview(view)
@@ -216,6 +225,8 @@ final class DiaryTimelineCell: UITableViewCell {
         return "\(weatherIcon(for: condition)) \(condition)"
     }
 
+    /// 根据中文天气描述选择轻量图标。
+    /// 自动天气和手动天气都可能进入这里，所以只做宽松的包含关系匹配。
     private func weatherIcon(for condition: String) -> String {
         if condition.contains("雨") { return "🌧️" }
         if condition.contains("雪") { return "❄️" }
@@ -226,6 +237,8 @@ final class DiaryTimelineCell: UITableViewCell {
     }
 }
 
+/// 日记时间线中的图片摘要视图。
+/// 最多渲染前三张图片，剩余数量叠加在最后一张图上，保持 cell 高度可控。
 private final class DiaryImageSummaryView: UIView {
     private let gridView = UIView()
     private let countLabel = PaddingLabel()
@@ -245,6 +258,8 @@ private final class DiaryImageSummaryView: UIView {
         nil
     }
 
+    /// 重新加载图片摘要。
+    /// 图片路径来自附件仓储，无法读取的本地文件会被跳过，避免坏附件导致列表崩溃。
     func configure(imagePaths: [String]) {
         self.imagePaths = imagePaths
         gridView.subviews.forEach { $0.removeFromSuperview() }
@@ -307,6 +322,7 @@ private final class DiaryImageSummaryView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // 宽度变化会影响三列缩略图尺寸，旋转或首次布局后需要重新计算高度并通知外层约束。
         guard !imagePaths.isEmpty, abs(bounds.width - lastLayoutWidth) > 0.5 else { return }
         lastLayoutWidth = bounds.width
         configure(imagePaths: imagePaths)
@@ -332,6 +348,8 @@ private final class DiaryImageSummaryView: UIView {
     }
 }
 
+/// 带内边距的文本标签。
+/// 用于心情和标签胶囊，避免每处都手写 inset 子类。
 private final class PaddingLabel: UILabel {
     var contentInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
 

@@ -5,8 +5,11 @@ import UIKit
 /// 流水编辑控制器。
 /// 用于修改已保存流水的金额、类型、分类、备注和发生时间。
 final class LedgerTransactionEditViewController: ViewDayBaseViewController {
+    /// 保存成功后通知详情页或账本页刷新。
     var onSave: (() -> Void)?
 
+    /// 正在编辑的流水副本。
+    /// 表单变更先写入该副本，最终点击保存时再提交到仓储。
     private var transaction: LedgerTransaction
     private let transactionRepository: TransactionRepositoryProtocol
     private let attachmentRepository: AttachmentRepository
@@ -58,6 +61,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         configureInitialValues()
     }
 
+    /// 配置保存入口。
+    /// 流水通常不会创建草稿，但这里保留草稿分支以兼容模型能力和未来入口。
     private func configureNavigationItems() {
         var items = [
             UIBarButtonItem(image: UIImage(systemName: "cloud.sun"), style: .plain, target: self, action: #selector(weatherButtonTapped)),
@@ -126,6 +131,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 将流水快照回填到表单控件。
+    /// note 和 detailText 目前保持相同文案，优先读取 detailText 可以兼容后续扩展。
     private func configureInitialValues() {
         amountCard.amountTextField.text = NSDecimalNumber(decimal: transaction.amount).stringValue
         amountCard.typeControl.selectedSegmentIndex = transaction.type == .expense ? 0 : 1
@@ -144,6 +151,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         selectedImageCountLabel.textAlignment = .center
     }
 
+    /// 读取已有图片附件供编辑页预览。
+    /// 账本第一版只支持图片附件，音频和标签入口会显示暂不支持提示。
     private func loadAttachments() {
         let attachments = (try? attachmentRepository.fetchAttachments(ownerId: transaction.localId, ownerType: .transaction)) ?? []
         selectedImages = attachments
@@ -167,6 +176,11 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         saveEditedTransaction(isDraft: false)
     }
 
+    /// 保存编辑后的流水。
+    ///
+    /// - Parameter isDraft: 保存后的草稿状态，当前主要用于兼容模型。
+    ///
+    /// 保存顺序为“流水主体 -> 图片附件”，确保附件始终挂在已存在的 localId 上。
     private func saveEditedTransaction(isDraft: Bool) {
         guard selectedDate <= Date() else {
             showAlert(title: "不能编辑未来账单", message: "记录时间不能晚于当前时间。")
@@ -243,6 +257,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         presentWeatherOptions()
     }
 
+    /// 展示手动地点编辑器。
+    /// 手动变更地点后清空天气，避免旧天气和新地点产生错误关联。
     private func presentManualLocationEditor() {
         let alertController = UIAlertController(title: "修改地点", message: "可以手动填写这笔账单的地点。", preferredStyle: .alert)
         alertController.addTextField { [weak self] textField in
@@ -270,6 +286,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         present(alertController, animated: true)
     }
 
+    /// 根据当前地点刷新天气。
+    /// 自动获取失败时保留原有天气入口，用户仍可通过手动填写完成记录。
     private func refreshWeatherIfPossible() {
         guard let currentLocation else {
             showAlert(title: "没有地点", message: "先填写地点后再刷新天气。")
@@ -316,6 +334,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 打开图片选择器。
+    /// 账单图片与日记共用 9 张上限，保证详情页附件网格布局稳定。
     private func presentImagePicker() {
         let remainingSlots = 9 - selectedImages.count
         guard remainingSlots > 0 else {
@@ -332,6 +352,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         present(pickerViewController, animated: true)
     }
 
+    /// 在图片发生变化后重建账单图片附件。
+    /// 采用软删旧附件再新建的方式，让删除和重新选择都能映射到未来同步语义。
     private func saveEditedImagesIfNeeded() throws {
         guard imagesDidChange else { return }
 
@@ -365,6 +387,8 @@ final class LedgerTransactionEditViewController: ViewDayBaseViewController {
         selectedImageStripView.configure(images: selectedImages)
     }
 
+    /// 刷新表单中的时间、地点、天气元信息。
+    /// 日期选择、地点编辑和天气编辑都统一走这里更新 UI。
     private func refreshMetadataRows() {
         textInputCard.configureMetadata(items: [
             ("clock", formattedTime(selectedDate)),
@@ -431,6 +455,7 @@ extension LedgerTransactionEditViewController: PHPickerViewControllerDelegate {
         let lock = NSLock()
         var loadedImages: [UIImage] = []
 
+        // PHPicker 回调可能并发执行，先收集到临时数组，全部完成后再回主线程更新表单状态。
         results.forEach { result in
             guard result.itemProvider.canLoadObject(ofClass: UIImage.self) else { return }
             dispatchGroup.enter()

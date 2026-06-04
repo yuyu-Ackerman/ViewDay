@@ -5,8 +5,11 @@ import UIKit
 /// 日记编辑控制器。
 /// 用于修改已保存日记的正文、情绪、收藏状态和基础元信息。
 final class DiaryEditViewController: ViewDayBaseViewController {
+    /// 保存成功后通知列表或详情页重新读取最新数据。
     var onSave: (() -> Void)?
 
+    /// 正在编辑的日记副本。
+    /// 页面先在内存中修改字段，用户点击保存后再一次性写回仓储。
     private var diary: DiaryEntry
     private let diaryRepository: DiaryRepositoryProtocol
     private let attachmentRepository: AttachmentRepository
@@ -70,6 +73,8 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         configureInitialValues()
     }
 
+    /// 配置右上角操作。
+    /// 草稿日记同时提供“存草稿”和“完成”，正式日记只提供保存，避免误把正式记录退回草稿。
     private func configureNavigationItems() {
         var items = [
             UIBarButtonItem(image: UIImage(systemName: "cloud.sun"), style: .plain, target: self, action: #selector(weatherButtonTapped)),
@@ -166,6 +171,9 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         selectedTagsLabel.numberOfLines = 2
     }
 
+    /// 读取已有附件和标签。
+    ///
+    /// 图片会加载为 UIImage 供编辑页预览；音频保留原附件引用，只有用户重新录音时才替换。
     private func loadAttachments() {
         let attachments = (try? attachmentRepository.fetchAttachments(ownerId: diary.localId, ownerType: .diary)) ?? []
         selectedImages = attachments
@@ -187,6 +195,11 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         saveEditedDiary(isDraft: false)
     }
 
+    /// 保存编辑后的日记。
+    ///
+    /// - Parameter isDraft: 保存后的草稿状态。编辑草稿时可选择继续保留草稿或完成为正式日记。
+    ///
+    /// 保存顺序很重要：先更新日记主体，确保 localId 仍然有效，再替换图片、音频和标签关系。
     private func saveEditedDiary(isDraft: Bool) {
         view.endEditing(true)
         guard selectedDate <= Date() else {
@@ -266,6 +279,8 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         presentWeatherOptions()
     }
 
+    /// 展示手动地点编辑器。
+    /// 用户手动改地点后会清空天气，避免旧天气继续和新地点绑定在一起。
     private func presentManualLocationEditor() {
         let alertController = UIAlertController(title: "修改地点", message: "可以手动填写这篇日记的地点。", preferredStyle: .alert)
         alertController.addTextField { [weak self] textField in
@@ -293,6 +308,9 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         present(alertController, animated: true)
     }
 
+    /// 根据当前地点重新获取天气。
+    ///
+    /// 天气服务是 async 边界，成功和失败都切回主线程更新元信息行。
     private func refreshWeatherIfPossible() {
         guard let currentLocation else {
             showAlert(title: "没有地点", message: "先填写地点后再刷新天气。")
@@ -339,6 +357,8 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 打开图片选择器。
+    /// 图片数量限制为 9 张，与记录页保持一致，避免附件网格在详情页溢出。
     private func presentImagePicker() {
         let remainingSlots = 9 - selectedImages.count
         guard remainingSlots > 0 else {
@@ -355,6 +375,8 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         present(pickerViewController, animated: true)
     }
 
+    /// 开始或结束语音录制。
+    /// 权限被拒绝时直接引导系统设置；录制中的再次点击会停止并保存新音频 URL。
     private func toggleAudioRecording() {
         if audioRecorderService.isRecording {
             selectedAudioURL = audioRecorderService.stopRecording()
@@ -378,6 +400,9 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 在图片发生变更时重建图片附件。
+    ///
+    /// 图片附件使用“先软删旧附件，再按当前顺序新建”的策略，保证删除、重排和追加都能一致落库。
     private func saveEditedImagesIfNeeded() throws {
         guard imagesDidChange else { return }
 
@@ -406,6 +431,8 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 在用户录制新音频后替换原音频附件。
+    /// 没有新录音时保留 existingAudioAttachment，不做无意义写入。
     private func saveEditedAudioIfNeeded() throws {
         guard let selectedAudioURL else { return }
 
@@ -463,6 +490,8 @@ final class DiaryEditViewController: ViewDayBaseViewController {
         present(UINavigationController(rootViewController: tagSelectionViewController), animated: true)
     }
 
+    /// 刷新时间、地点、天气三行元信息。
+    /// 所有手动编辑和自动天气更新都走这里，避免 UI 文案和内存状态不一致。
     private func refreshMetadataRows() {
         textInputCard.configureMetadata(items: [
             ("clock", formattedTime(selectedDate)),
@@ -530,6 +559,7 @@ extension DiaryEditViewController: PHPickerViewControllerDelegate {
         let lock = NSLock()
         var loadedImages: [UIImage] = []
 
+        // PHPicker 的 itemProvider 回调可能并发返回，用锁保护临时数组，最后统一回到主线程刷新 UI。
         results.forEach { result in
             guard result.itemProvider.canLoadObject(ofClass: UIImage.self) else { return }
             dispatchGroup.enter()

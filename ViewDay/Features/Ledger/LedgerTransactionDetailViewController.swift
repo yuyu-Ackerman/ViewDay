@@ -4,9 +4,13 @@ import UIKit
 /// 流水详情控制器。
 /// 展示单笔账本流水的金额、分类、地点天气和附件，并提供编辑与删除入口。
 final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
+    /// 删除成功后通知账本页刷新列表和统计。
     var onDelete: (() -> Void)?
+    /// 编辑成功后通知外层同步最新账本数据。
     var onUpdate: (() -> Void)?
 
+    /// 当前详情页展示的流水。
+    /// 编辑返回后会重新读取，保证金额、分类、附件一起刷新。
     private var transaction: LedgerTransaction
     private let transactionRepository: TransactionRepositoryProtocol
     private let attachmentRepository: AttachmentRepository
@@ -36,6 +40,8 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         setupContent()
     }
 
+    /// 配置详情页操作按钮。
+    /// 未来时间的流水不允许编辑，但仍允许删除错误创建的数据。
     private func configureNavigationItems() {
         var items = [
             UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(deleteButtonTapped))
@@ -46,6 +52,9 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         navigationItem.rightBarButtonItems = items
     }
 
+    /// 构建流水详情内容。
+    ///
+    /// 金额和基础字段放在信息卡片中；备注、地点天气和图片附件放在下方，方便快速扫读。
     private func setupContent() {
         let amountCard = InfoCardView(title: transaction.type == .income ? "收入" : "支出")
         amountCard.addRow(title: "金额", value: signedAmountText(), valueColor: transaction.type == .income ? ViewDayTheme.accent : ViewDayTheme.primaryText)
@@ -91,6 +100,8 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 读取图片附件路径。
+    /// 附件读取失败时降级为空图片区，不影响用户查看账单主体。
     private func imageAttachmentPaths() -> [String] {
         (try? attachmentRepository.fetchAttachments(ownerId: transaction.localId, ownerType: .transaction))
             .map { attachments in
@@ -107,6 +118,8 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         present(alertController, animated: true)
     }
 
+    /// 执行软删除。
+    /// 仓储层会维护同步状态和附件关系，页面只负责提示、回调和返回。
     private func deleteTransaction() {
         do {
             try transactionRepository.softDeleteTransaction(id: transaction.localId)
@@ -137,6 +150,8 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         navigationController?.pushViewController(editViewController, animated: true)
     }
 
+    /// 编辑完成后重新加载流水并重建视图。
+    /// 这样可以一次性同步金额、分类、备注、地点天气和附件变化。
     private func reloadTransaction() {
         do {
             guard let updatedTransaction = try transactionRepository.fetchTransaction(id: transaction.localId) else { return }
@@ -149,6 +164,8 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         }
     }
 
+    /// 是否为未来时间的流水。
+    /// 当前编辑器不允许修改未来记录，避免提前记账影响统计解释。
     private var isFutureTransaction: Bool {
         transaction.transactionDate > Date()
     }
@@ -180,6 +197,8 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
         return formatter.string(from: date)
     }
 
+    /// 合并地点和天气摘要。
+    /// 当两者都缺失时返回 nil，让摘要卡片不展示空 accessory。
     private func locationAndWeatherText() -> String? {
         let location = transaction.location?.name ?? transaction.location?.district ?? transaction.location?.city
         let weather: String?
@@ -210,6 +229,7 @@ final class LedgerTransactionDetailViewController: ViewDayBaseViewController {
 }
 
 private extension String {
+    /// 将空字符串转换为 nil，便于可选 UI 文案直接隐藏。
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
